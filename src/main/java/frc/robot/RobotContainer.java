@@ -11,6 +11,7 @@ import frc.robot.subsystems.Intake;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import static edu.wpi.first.units.Units.Amps;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -46,8 +47,7 @@ public class RobotContainer {
     //new Trigger(m_intake::exampleCondition)
     //    .onTrue(new ExampleCommand(m_intake));
 
-    // Schedule `exampleMethodCommand` when the Xbox controller's B button is pressed,
-    // cancelling on release.
+    m_driverController.a().onTrue(m_intake.toggleIntake());
   }
 
   /**

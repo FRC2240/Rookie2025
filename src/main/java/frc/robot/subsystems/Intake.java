@@ -3,15 +3,21 @@
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot.subsystems;
+import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import com.revrobotics.ColorSensorV3;
 import com.revrobotics.ColorMatchResult;
+import com.ctre.phoenix6.controls.TorqueCurrentFOC;
+import com.ctre.phoenix6.hardware.TalonFX;
 import com.revrobotics.ColorMatch;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import static edu.wpi.first.units.Units.Amps;
+
 
 public class Intake extends SubsystemBase {
   private final I2C.Port i2cPort = I2C.Port.kOnboard;
@@ -22,6 +28,20 @@ public class Intake extends SubsystemBase {
   private final Color kGreenTarget = new Color(0.197, 0.561, 0.240);
   private final Color kRedTarget = new Color(0.561, 0.232, 0.114);
   private final Color kYellowTarget = new Color(0.361, 0.524, 0.113);
+
+  // motors
+  TalonFX m_pivotMotor = new TalonFX(31);
+  TalonFX m_rollerMotor = new TalonFX(5);
+
+  // Intake states
+  private enum State {
+    IDLE,
+    ACTIVE,
+    EJECTING,
+    INTAKING
+  }
+
+  State state = State.IDLE;
 
   /** Creates a new Intake subsystem. */
   public Intake() {
@@ -44,6 +64,30 @@ public class Intake extends SubsystemBase {
           /* one-time action goes here */
         });
   }
+  /* 
+  public Command idleCommand() {
+    return Commands.runOnce(() -> {
+      TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(0.0));
+      m_rollerMotor.setControl(req);
+
+    });
+  }*/
+
+  public Command toggleIntake() {
+    return Commands.runOnce(() -> {
+      Current current;
+      if (state == State.IDLE) {
+        current = Amps.of(3.0);
+        state = State.ACTIVE;
+      } else {
+        current = Amps.of(0.0);
+        state = State.IDLE;
+      }
+      TorqueCurrentFOC req = new TorqueCurrentFOC(current);
+      m_rollerMotor.setControl(req);
+  });
+  }
+
 
   /**
    * An example method querying a boolean state of the subsystem (for example, a
