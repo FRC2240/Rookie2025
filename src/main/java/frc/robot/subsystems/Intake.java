@@ -3,6 +3,7 @@
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot.subsystems;
+
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -11,6 +12,8 @@ import edu.wpi.first.wpilibj.util.Color;
 import com.revrobotics.ColorSensorV3;
 import com.revrobotics.ColorMatchResult;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import com.ctre.phoenix6.controls.TorqueCurrentFOC;
 import com.revrobotics.ColorMatch;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -18,9 +21,8 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import static edu.wpi.first.units.Units.Amps;
-
+import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import java.util.Optional;
-
 import edu.wpi.first.wpilibj.DriverStation;
 
 public class Intake extends SubsystemBase {
@@ -33,10 +35,13 @@ public class Intake extends SubsystemBase {
   private final Color kRedTarget = new Color(0.561, 0.232, 0.114);
   private final Color kYellowTarget = new Color(0.361, 0.524, 0.113);
 
+  private final PositionTorqueCurrentFOC m_positionTorque = new PositionTorqueCurrentFOC(0).withSlot(1);
+
   // motors
   TalonFX m_pivotMotor = new TalonFX(31);
   TalonFX m_rollerMotor = new TalonFX(5);
-  
+
+
   // Intake states
   private enum State {
     IDLE,
@@ -48,7 +53,6 @@ public class Intake extends SubsystemBase {
   State m_state = State.IDLE;
 
   String m_colorString;
-  
 
   /** Creates a new Intake subsystem. */
   public Intake() {
@@ -56,13 +60,19 @@ public class Intake extends SubsystemBase {
     m_colorMatcher.addColorMatch(kGreenTarget);
     m_colorMatcher.addColorMatch(kRedTarget);
     m_colorMatcher.addColorMatch(kYellowTarget);
+
+    TalonFXConfiguration configs = new TalonFXConfiguration();
+    configs.Slot1.kP = 60; // An error of 1 rotation results in 60 A output
+    configs.Slot1.kI = 0; // No output for integrated error
+    configs.Slot1.kD = 6; // A velocity of 1 rps results in 6 A output
+    // Peak output of 60 A
+    configs.TorqueCurrent.withPeakForwardTorqueCurrent(Amps.of(60))
+      .withPeakReverseTorqueCurrent(Amps.of(-60));
+
+    m_pivotMotor.getConfigurator().apply(configs);
+    m_pivotMotor.setPosition(0);
   }
 
-  /**
-   * Example command factory method.
-   *
-   * @return a command
-   */
   public Command exampleMethodCommand() {
     // Inline construction of command goes here.
     // Subsystem::RunOnce implicitly requires `this` subsystem.
@@ -72,31 +82,73 @@ public class Intake extends SubsystemBase {
         });
   }
 
-public Command toggleIntake() {
-  return Commands.runOnce(() -> {
-    Current current;
-    if (m_state == State.IDLE) {
-      current = Amps.of(3.0);
-      m_state = State.ACTIVE;
- } else {
-      current = Amps.of(0.0);
-      m_state = State.IDLE;
-    }
-    TorqueCurrentFOC req = new TorqueCurrentFOC(current);
-    m_rollerMotor.setControl(req);
-  });
-}
+  public Command active() {
+    return Commands.runOnce(() -> {
+        m_state = State.ACTIVE;
+        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(3.0));
+        m_rollerMotor.setControl(req);
+    });
+  }
 
+  public Command ejecting() {
+    return Commands.runOnce(() -> {
+        m_state = State.EJECTING;
+        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(-3.0));
+        m_rollerMotor.setControl(req);
+    }).withTimeout(5.0).andThen(active());
+  }
 
-  /**
-   * An example method querying a boolean state of the subsystem (for example, a
-   * digital sensor).
-   *
-   * @return value of some boolean subsystem state, such as a digital sensor.
+  public Command intaking() {
+    return Commands.runOnce(() -> {
+        m_state = State.INTAKING;
+    }).withTimeout(5.0).andThen(idle());
+  }
+
+  public Command idle() {
+    return Commands.runOnce(() -> {
+        m_state = State.IDLE;
+        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(0.0));
+        m_rollerMotor.setControl(req);
+        m_pivotMotor.setControl(m_positionTorque.withPosition(0.0));
+    });
+  }
+
+  public Command toggleIntake() {
+    return Commands.runOnce(() -> {
+      Current current;
+      double rotations;
+      if (m_state == State.IDLE) {
+        current = Amps.of(3.0);
+        m_state = State.ACTIVE;
+        rotations = 0.0;
+      } else {
+        current = Amps.of(0.0);
+        rotations = 80.5;
+        m_state = State.IDLE;
+      }
+      TorqueCurrentFOC req = new TorqueCurrentFOC(current);
+      m_rollerMotor.setControl(req);
+
+      // m_pivot (up/down)
+      m_pivotMotor.setControl(m_positionTorque.withPosition(rotations));
+    });
+  }
+
+  /*
+   * Conditions
    */
-  public boolean exampleCondition() {
-    // Query some boolean state, such as a digital sensor.
-    return false;
+  public boolean isWrongColorCondition() {
+    if (m_state != State.ACTIVE) {
+      return false;
+    }
+    return isWrong();
+  }
+
+  public boolean isCorrectColorCondition() {
+    if (m_state != State.ACTIVE) {
+      return false;
+    }
+    return isCorrect();
   }
 
   @Override
@@ -107,7 +159,6 @@ public Command toggleIntake() {
     /**
      * Run the color match algorithm on our detected color
      */
-    String colorString;
     ColorMatchResult match = m_colorMatcher.matchClosestColor(detectedColor);
 
     if (match.color == kBlueTarget) {
@@ -136,44 +187,35 @@ public Command toggleIntake() {
     // This method will be called once per scheduler run during simulation
   }
 
-boolean isCorrect(){
+  boolean isCorrect() {
 
-Optional <DriverStation.Alliance> aColor = DriverStation.getAlliance();
+    Optional<DriverStation.Alliance> aColor = DriverStation.getAlliance();
 
-  if (!aColor.isPresent()) {
-    return false; 
-  } 
-  if ((m_colorString == "Red") && (aColor.get() == DriverStation.Alliance.Red)) 
-  {
-    return true;
-  } 
-  if ((m_colorString == "Blue") && (aColor.get() == DriverStation.Alliance.Blue))
-   {
-    return true;
-  }
- return false;
-} 
-
-boolean isWrong(){
-
-Optional <DriverStation.Alliance> aColor = DriverStation.getAlliance();
-
-  if (!aColor.isPresent()) {
+    if (!aColor.isPresent()) {
+      return false;
+    }
+    if ((m_colorString == "Red") && (aColor.get() == DriverStation.Alliance.Red)) {
+      return true;
+    }
+    if ((m_colorString == "Blue") && (aColor.get() == DriverStation.Alliance.Blue)) {
+      return true;
+    }
     return false;
   }
-  if ((m_colorString == "Red") && (aColor.get() == DriverStation.Alliance.Blue)) 
-  {
-    return true;
+
+  boolean isWrong() {
+
+    Optional<DriverStation.Alliance> aColor = DriverStation.getAlliance();
+
+    if (!aColor.isPresent()) {
+      return false;
+    }
+    if ((m_colorString == "Red") && (aColor.get() == DriverStation.Alliance.Blue)) {
+      return true;
+    }
+    if ((m_colorString == "Blue") && (aColor.get() == DriverStation.Alliance.Red)) {
+      return true;
+    }
+    return false;
   }
-  if ((m_colorString == "Blue") && (aColor.get() == DriverStation.Alliance.Red)) 
-  {
-    return true;
-  }
-  return false;
-} 
-
-
-
-
-
 }

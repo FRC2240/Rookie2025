@@ -42,12 +42,8 @@ public class RobotContainer {
    * joysticks}.
    */
   private void configureBindings() {
-    // Schedule `ExampleCommand` when `exampleCondition` changes to `true`
-    //new Trigger(m_intake::exampleCondition)
-    //    .onTrue(new ExampleCommand(m_intake));
-
-    // Schedule `exampleMethodCommand` when the Xbox controller's B button is pressed,
-    // cancelling on release.
+    new Trigger(m_intake::isWrongColorCondition).onTrue(m_intake.ejecting());
+    new Trigger(m_intake::isCorrectColorCondition).onTrue(m_intake.intaking());
 
     m_driverController.a().onTrue(m_intake.toggleIntake());
   }
