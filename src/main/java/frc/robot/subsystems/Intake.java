@@ -50,6 +50,21 @@ public class Intake extends SubsystemBase {
     INTAKING
   }
 
+  String stateToString(State s) {
+    switch (s) {
+      case IDLE:
+        return "IDLE";
+      case ACTIVE:
+        return "ACTIVE";
+      case EJECTING:
+        return "EJECTING";
+      case INTAKING:
+        return "INTAKING";
+      default:
+        return "UNKNOWN";
+    }
+  }
+
   State m_state = State.IDLE;
 
   String m_colorString;
@@ -129,7 +144,6 @@ public class Intake extends SubsystemBase {
       TorqueCurrentFOC req = new TorqueCurrentFOC(current);
       m_rollerMotor.setControl(req);
 
-      // m_pivot (up/down)
       m_pivotMotor.setControl(m_positionTorque.withPosition(rotations));
     });
   }
@@ -180,6 +194,7 @@ public class Intake extends SubsystemBase {
     SmartDashboard.putString("Detected Color", m_colorString);
     SmartDashboard.putBoolean("IsCorrect", isCorrect());
     SmartDashboard.putBoolean("IsWrong", isWrong());
+    SmartDashboard.putString("Intake State", stateToString(m_state));
   }
 
   @Override
