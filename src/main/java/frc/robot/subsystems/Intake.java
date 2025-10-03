@@ -24,6 +24,8 @@ import static edu.wpi.first.units.Units.Amps;
 import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import java.util.Optional;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
+
 
 public class Intake extends SubsystemBase {
   private final I2C.Port i2cPort = I2C.Port.kOnboard;
@@ -97,6 +99,11 @@ public class Intake extends SubsystemBase {
         });
   }
 
+  public void initDefaultCommand() {
+    // Set the default command for a subsystem here.
+    setDefaultCommand(idle());
+  }
+
   public Command active() {
     return Commands.runOnce(() -> {
         m_state = State.ACTIVE;
@@ -110,21 +117,24 @@ public class Intake extends SubsystemBase {
         m_state = State.EJECTING;
         TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(-3.0));
         m_rollerMotor.setControl(req);
-    }).withTimeout(5.0).andThen(active());
+      }).andThen(new WaitCommand(5.0)).andThen(active());
+    //}).withTimeout(5.0).andThen(active());
   }
 
   public Command intaking() {
     return Commands.runOnce(() -> {
         m_state = State.INTAKING;
-    }).withTimeout(5.0).andThen(idle());
+    }).andThen(new WaitCommand(5.0)).andThen(idle());
+    //}).withTimeout(5.0).andThen(idle());
   }
 
   public Command idle() {
     return Commands.runOnce(() -> {
         m_state = State.IDLE;
+        double rotations = 0.0;
         TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(0.0));
         m_rollerMotor.setControl(req);
-        m_pivotMotor.setControl(m_positionTorque.withPosition(0.0));
+        m_pivotMotor.setControl(m_positionTorque.withPosition(rotations));
     });
   }
 
