@@ -118,12 +118,6 @@ public class Intake extends SubsystemBase {
       }).andThen(new WaitCommand(5.0)).andThen(active());
   }
 
-  public Command intaking() {
-    return Commands.runOnce(() -> {
-        m_state = State.INTAKING;
-    }).andThen(new WaitCommand(5.0)).andThen(idle());
-  }
-
   public Command idle() {
     return Commands.runOnce(() -> {
         m_state = State.IDLE;
