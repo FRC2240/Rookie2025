@@ -6,7 +6,6 @@ package frc.robot.subsystems;
 
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.wpilibj.I2C;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import com.revrobotics.ColorSensorV3;
@@ -21,7 +20,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import static edu.wpi.first.units.Units.Amps;
-import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import java.util.Optional;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
@@ -118,14 +116,12 @@ public class Intake extends SubsystemBase {
         TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(-3.0));
         m_rollerMotor.setControl(req);
       }).andThen(new WaitCommand(5.0)).andThen(active());
-    //}).withTimeout(5.0).andThen(active());
   }
 
   public Command intaking() {
     return Commands.runOnce(() -> {
         m_state = State.INTAKING;
     }).andThen(new WaitCommand(5.0)).andThen(idle());
-    //}).withTimeout(5.0).andThen(idle());
   }
 
   public Command idle() {
@@ -145,10 +141,10 @@ public class Intake extends SubsystemBase {
       if (m_state == State.IDLE) {
         current = Amps.of(3.0);
         m_state = State.ACTIVE;
-        rotations = 0.0;
+        rotations = 80.5;
       } else {
         current = Amps.of(0.0);
-        rotations = 80.5;
+        rotations = 0.0;
         m_state = State.IDLE;
       }
       TorqueCurrentFOC req = new TorqueCurrentFOC(current);
