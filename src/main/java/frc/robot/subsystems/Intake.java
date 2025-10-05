@@ -36,10 +36,11 @@ public class Intake extends SubsystemBase {
   private final Color kYellowTarget = new Color(0.361, 0.524, 0.113);
 
   private final PositionTorqueCurrentFOC m_positionTorque = new PositionTorqueCurrentFOC(0).withSlot(1);
+  private final TorqueCurrentFOC m_currentTorque = new TorqueCurrentFOC(Constants.Intake.kIdleRollerCurrent);
 
   // motors
-  TalonFX m_pivotMotor = new TalonFX(31);
-  TalonFX m_rollerMotor = new TalonFX(5);
+  TalonFX m_pivotMotor = new TalonFX(Constants.Intake.kPivotID);
+  TalonFX m_rollerMotor = new TalonFX(Constants.Intake.kRollerID);
 
 
   // Intake states
@@ -85,7 +86,7 @@ public class Intake extends SubsystemBase {
       .withPeakReverseTorqueCurrent(Amps.of(-60));
 
     m_pivotMotor.getConfigurator().apply(configs);
-    m_pivotMotor.setPosition(0);
+    m_pivotMotor.setPosition(Constants.Intake.kStowedPostion);
   }
 
   public Command exampleMethodCommand() {
@@ -105,53 +106,38 @@ public class Intake extends SubsystemBase {
   public Command active() {
     return Commands.runOnce(() -> {
         m_state = State.ACTIVE;
-        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(3.0));
-        m_rollerMotor.setControl(req);
+        m_pivotMotor.setControl(m_positionTorque.withPosition(Constants.Intake.kExtendedPostion));
+        m_rollerMotor.setControl(m_currentTorque.withOutput(Constants.Intake.kForwardRollerCurrent));
     });
   }
 
   public Command ejecting() {
     return Commands.runOnce(() -> {
         m_state = State.EJECTING;
-        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(-3.0));
-        m_rollerMotor.setControl(req);
-      }).andThen(new WaitCommand(5.0)).andThen(active());
+        m_rollerMotor.setControl(m_currentTorque.withOutput(Constants.Intake.kReverseRollerCurrent));
+      }).andThen(new WaitCommand(Constants.Intake.kStateDelay)).andThen(active());
   }
 
   public Command intaking() {
     return Commands.runOnce(() -> {
         m_state = State.INTAKING;
-    }).andThen(new WaitCommand(5.0)).andThen(idle());
+    }).andThen(new WaitCommand(Constants.Intake.kStateDelay)).andThen(idle());
   }
 
   public Command idle() {
     return Commands.runOnce(() -> {
         m_state = State.IDLE;
-        double rotations = 0.0;
-        TorqueCurrentFOC req = new TorqueCurrentFOC(Amps.of(0.0));
-        m_rollerMotor.setControl(req);
-        m_pivotMotor.setControl(m_positionTorque.withPosition(rotations));
+        m_rollerMotor.setControl(m_currentTorque.withOutput(Constants.Intake.kIdleRollerCurrent));
+        m_pivotMotor.setControl(m_positionTorque.withPosition(Constants.Intake.kStowedPostion));
     });
   }
 
   public Command toggleIntake() {
-    return Commands.runOnce(() -> {
-      Current current;
-      double rotations;
-      if (m_state == State.IDLE) {
-        current = Amps.of(3.0);
-        m_state = State.ACTIVE;
-        rotations = 80.5;
-      } else {
-        current = Amps.of(0.0);
-        rotations = 0.0;
-        m_state = State.IDLE;
-      }
-      TorqueCurrentFOC req = new TorqueCurrentFOC(current);
-      m_rollerMotor.setControl(req);
-
-      m_pivotMotor.setControl(m_positionTorque.withPosition(rotations));
-    });
+    return Commands.either(
+      active(),
+      idle(),
+      () -> {return m_state == State.IDLE;}
+      );
   }
 
   /*
