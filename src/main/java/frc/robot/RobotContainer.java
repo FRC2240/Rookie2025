@@ -43,7 +43,7 @@ public class RobotContainer {
    */
   private void configureBindings() {
     new Trigger(m_intake::isWrongColorCondition).onTrue(m_intake.ejecting());
-    new Trigger(m_intake::isCorrectColorCondition).onTrue(m_intake.intaking());
+    //new Trigger(m_intake::isCorrectColorCondition).onTrue(m_intake.intaking());
 
     m_driverController.a().onTrue(m_intake.toggleIntake());
   }
